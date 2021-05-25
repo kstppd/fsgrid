@@ -991,10 +991,9 @@ template <typename T, int stencil> class FsGrid : public FsGridTools{
          float *mydata;              
          hsize_t count[3];         
          hsize_t offset[3];
-         // hsize_t stride[3];
-         // hsize_t block[3];
 
-         hid_t plist_id; /* property list identifier */
+
+         hid_t plist_id;
          int i;
          herr_t status;
          int mpi_size, mpi_rank;
@@ -1023,15 +1022,8 @@ template <typename T, int stencil> class FsGrid : public FsGridTools{
          offset[0] = this->localStart[0];
          offset[1] = this->localStart[1];
          offset[2] = this->localStart[2];
-         // stride[0] = 1;
-         // stride[1] = 1;
-         // stride[2] = 1;
-         // block[0] = count[0];
-         // block[1] = count[1];
-         // block[2] = count[2];
          
-
-
+         // Loop through variables  and write!
          for (auto const& var : variables)  {
 
             char *varName = new char[var.second.size() + 1];
@@ -1051,8 +1043,6 @@ template <typename T, int stencil> class FsGrid : public FsGridTools{
 
             filespace = H5Dget_space(dset_id);
             H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, count, NULL);
-            // std::cerr<<count[0]<< " "<<count[1]<<" "<<count[2]<<std::endl;
-            // mydata = (float *)malloc(sizeof(float) * count[0] * count[1] * count[2]);
             mydata = (float *) new float [ count[0] * count[1] * count[2]];
             
 
@@ -1079,11 +1069,7 @@ template <typename T, int stencil> class FsGrid : public FsGridTools{
          }
 
 
-
-
-
          H5Fclose(file_id);
-         // free(mydata);
          delete mydata;
 
          return true;
