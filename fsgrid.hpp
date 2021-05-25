@@ -982,7 +982,7 @@ template <typename T, int stencil> class FsGrid : public FsGridTools{
       }
 
 #ifdef USEHDF5
-      bool writeHDF(std::string dsetName,std::map<int,std::string> variables){
+      bool writeHDF(std::string Filename,std::map<int,std::string> variables){
 
 
          hid_t file_id, dset_id;   
@@ -1004,9 +1004,9 @@ template <typename T, int stencil> class FsGrid : public FsGridTools{
          plist_id = H5Pcreate(H5P_FILE_ACCESS);
          H5Pset_fapl_mpio(plist_id, comm, info);
 
-         char *writable = new char[dsetName.size() + 1];
-         std::copy(dsetName.begin(), dsetName.end(), writable);
-         writable[dsetName.size()] = '\0';
+         char *writable = new char[Filename.size() + 1];
+         std::copy(Filename.begin(), Filename.end(), writable);
+         writable[Filename.size()] = '\0';
 
          file_id = H5Fcreate(writable, H5F_ACC_TRUNC, H5P_DEFAULT, plist_id);
          H5Pclose(plist_id);
