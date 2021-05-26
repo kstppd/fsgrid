@@ -988,7 +988,7 @@ template <typename T, int stencil> class FsGrid : public FsGridTools{
          hid_t file_id, dset_id;   
          hid_t filespace, memspace;
          hsize_t dimsf[3];         
-         float *mydata;              
+         double *mydata;              
          hsize_t count[3];         
          hsize_t offset[3];
 
@@ -1022,7 +1022,8 @@ template <typename T, int stencil> class FsGrid : public FsGridTools{
          offset[0] = this->localStart[0];
          offset[1] = this->localStart[1];
          offset[2] = this->localStart[2];
-         
+         mydata = (double *)new double[count[0] * count[1] * count[2]];
+
          // Loop through variables  and write!
          for (auto const& var : variables)  {
 
@@ -1037,13 +1038,12 @@ template <typename T, int stencil> class FsGrid : public FsGridTools{
 
             plist_id = H5Pcreate(H5P_DATASET_CREATE);
             H5Pset_chunk(plist_id, 3, count);
-            dset_id = H5Dcreate(file_id, varName, H5T_NATIVE_FLOAT, filespace,H5P_DEFAULT, plist_id, H5P_DEFAULT);
+            dset_id = H5Dcreate(file_id, varName, H5T_NATIVE_DOUBLE, filespace,H5P_DEFAULT, plist_id, H5P_DEFAULT);
             H5Pclose(plist_id);
             H5Sclose(filespace);
 
             filespace = H5Dget_space(dset_id);
             H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, count, NULL);
-            mydata = (float *) new float [ count[0] * count[1] * count[2]];
             
 
             #pragma omp parallel for collapse(3)
@@ -1060,17 +1060,16 @@ template <typename T, int stencil> class FsGrid : public FsGridTools{
             plist_id = H5Pcreate(H5P_DATASET_XFER);
             H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_COLLECTIVE);
 
-            status = H5Dwrite(dset_id, H5T_NATIVE_FLOAT, memspace, filespace, plist_id, mydata);
+            status = H5Dwrite(dset_id, H5T_NATIVE_DOUBLE, memspace, filespace, plist_id, mydata);
             delete[] varName;
             H5Dclose(dset_id);
-            H5Sclose(filespace);
+            H5Pclose(plist_id);
             H5Sclose(memspace);
-
+            H5Sclose(filespace);
          }
 
 
          H5Fclose(file_id);
-         delete mydata;
 
          return true;
       }
