@@ -142,8 +142,7 @@ template <typename T, int stencil> class FsGrid : public FsGridTools{
        * \param isPeriodic An array specifying, for each dimension, whether it is to be treated as periodic.
        */
       FsGrid(std::array<int32_t, 3> globalSize, MPI_Comm parent_comm, std::array<bool, 3> isPeriodic, FsGridCouplingInformation &coupling)
-          : globalSize(globalSize), coupling(coupling){
-         this->parentCom = parent_comm;
+          : parentCom(parent_comm),globalSize(globalSize), coupling(coupling){
          this->init(parent_comm,isPeriodic);
       }
 
@@ -1176,6 +1175,12 @@ static inline FsGrid<T, stencil>  lerp_t(const  FsGrid<T, stencil> &lhs, const F
 
    //Let's now calculate the intepolation weights;
    S range=t1-t0;
+
+   //in case range is zero return lhs
+   if (range==0.0){
+      return lhs;
+   }
+
    S d0= abs(t-t0);
    S d1= abs(t-t1);
    S w0= 1.- (d0/range);
