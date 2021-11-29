@@ -978,15 +978,11 @@ template <typename T, int stencil> class FsGrid : public FsGridTools{
       //! Copy the entire data from another FsGrid of the same signature over.
       FsGrid<T, stencil>& operator=(const FsGrid<T, stencil>& other) {
 
-         // Don't copy if sizes mismatch.
-         // (Should this instead crash the program?)
-         if(other.localSize[0] != localSize[0]   ||
-            other.localSize[1] != localSize[1]   ||
-            other.localSize[2] != localSize[2]) {
-            return *this;
-         }
+         // Fail if sizes mismatch.
+         assert(other.localSize[0] == this->localSize[0]);
+         assert(other.localSize[1] == this->localSize[1]);
+         assert(other.localSize[2] == this->localSize[2]);
          data = other.data;
-
          return *this;
       }
 
@@ -1013,15 +1009,7 @@ template <typename T, int stencil> class FsGrid : public FsGridTools{
          }
          return *this;
       }
-      
-      // FsGrid<T, stencil>& operator*=(const FsGrid<T, stencil>& rhs) {
-      //    assert(this->data.size()==rhs.data.size());
-      //    for (size_t i=0; i< this->data.size(); i++){
-      //       this->data[i] = this->data[i]*rhs.data[i];
-      //    }
-      //    return *this;
-      // }
-      
+
       FsGrid<T, stencil>& operator/=(const FsGrid<T, stencil>& rhs) {
          assert(this->data.size()==rhs.data.size());
          for (size_t i=0; i< this->data.size(); i++){
@@ -1030,6 +1018,13 @@ template <typename T, int stencil> class FsGrid : public FsGridTools{
          return *this;
       }
 
+      template <typename S, typename std::enable_if<std::is_arithmetic<S>::value>::type * = nullptr>
+      FsGrid<T, stencil> &operator*(S mult){
+         for (size_t i=0; i< this->data.size(); i++){
+            this->data[i] = this->data[i]*mult;
+         }
+         return *this;
+      }
 
    private:
       //! MPI Cartesian communicator used in this grid
@@ -1093,46 +1088,53 @@ template <typename T, int stencil> class FsGrid : public FsGridTools{
 };
 
 
-// std Array Operators Overloads
+//Array Operator Overloads
 template <typename T, size_t N>
-static inline std::array<T,N> operator+(const std::array<T, N>& ob1, const std::array<T, N>& ob2){
+static inline std::array<T,N> operator+(const std::array<T, N>& arr1, const std::array<T, N>& arr2){
    std::array<T, N> res;
     for (size_t i = 0; i < N; ++i){
-        res[i] = ob1[i] + ob2[i];
-      }
-    return res; 
-}
-template <typename T, size_t N>
-static inline std::array<T,N> operator-(const std::array<T, N>& ob1, const std::array<T, N>& ob2){
-   std::array<T, N> res;
-    for (size_t i = 0; i < N; ++i){
-        res[i] = ob1[i] - ob2[i];
+        res[i] = arr1[i] + arr2[i];
       }
     return res; 
 }
 
 template <typename T, size_t N>
-static inline std::array<T, N> operator*(const std::array<T, N> &ob1, const std::array<T, N> &ob2){
+static inline std::array<T,N> operator-(const std::array<T, N>& arr1, const std::array<T, N>& arr2){
+   std::array<T, N> res;
+    for (size_t i = 0; i < N; ++i){
+        res[i] = arr1[i] - arr2[i];
+      }
+    return res; 
+}
+
+template <typename T, size_t N>
+static inline std::array<T, N> operator*(const std::array<T, N> &arr1, const std::array<T, N> &arr2){
    std::array<T, N> res;
    for (size_t i = 0; i < N; ++i){
-      res[i] = ob1[i] * ob2[i];
+      res[i] = arr1[i] * arr2[i];
    }
    return res;
 }
 
 template <typename T, size_t N>
-static inline std::array<T,N> operator/(const std::array<T, N>& ob1, const std::array<T, N>& ob2){
+static inline std::array<T,N> operator/(const std::array<T, N>& arr1, const std::array<T, N>& arr2){
    std::array<T, N> res;
     for (size_t i = 0; i < N; ++i){
-        res[i] = ob1[i] / ob2[i];
+        res[i] = arr1[i] / arr2[i];
       }
     return res; 
 }
 
+template <typename T, size_t N,typename S,typename std::enable_if<std::is_arithmetic<S>::value>::type* = nullptr>
+std::array<T,N> operator*(std::array<T, N>& arr, S mult){
+    for (size_t i = 0; i < N; ++i)
+        arr[i]*=mult;
+    return arr; 
+}
 
 
 
-// FsGrid Operators Overloads
+// FsGrid Operator Overloads
 template <class T, int stencil>
 static inline FsGrid<T, stencil> operator+(const FsGrid<T, stencil> &lhs, const FsGrid<T, stencil> &rhs){
    FsGrid<T, stencil> a(lhs);
@@ -1157,30 +1159,35 @@ static inline FsGrid<T, stencil> operator/(const FsGrid<T, stencil> &lhs, const 
    return a /= rhs;
 }
 
-template <class T, int stencil>
-static inline FsGrid<T, stencil>  lerp(const FsGrid<T, stencil> &lhs, const FsGrid<T, stencil> &rhs,float t0, float t1,float t){
+template <class T, int stencil,typename S,typename std::enable_if<std::is_arithmetic<S>::value>::type* = nullptr>
+static inline FsGrid<T, stencil>  lerp_t(const  FsGrid<T, stencil> &lhs, const FsGrid<T, stencil> &rhs,S t0, S t1,S t){
    
+   //Sanity check for timestamps. If sizes mismatch then this will make it crash in the '=' operator
    bool doAble = (t0<=t) && (t<=t1);
    if (!doAble){
+      #pragma message(": warning<FsGrid lerp_t>: We should probably crash here instead of returning nonesense")
       //Do we crash here?
       std::cerr<<"Interpolation not doable in the range of "<<t0<<" "<<t<<" "<<t1<<std::endl; 
+      return lhs;
    }
-   
-   //First let's create the targer grid by copying on the inputs
+
+   //First let's create the targer grid by copying one of the inputs
    FsGrid<T, stencil> targetGrid(lhs);
 
-   //Let's now find the intepolation weights;
-   float range=t1-t0;
-   float d0= abs(t-t0);
-   float d1= abs(t-t1);
-   float w0= 1.- (d0/range);
-   float w1= 1.- (d1/range);
+   //Let's now calculate the intepolation weights;
+   S range=t1-t0;
+   S d0= abs(t-t0);
+   S d1= abs(t-t1);
+   S w0= 1.- (d0/range);
+   S w1= 1.- (d1/range);
 
-   //Do interpolate
+   //Do interpolate-targetGrid=w0*lhs+w1*rhs
+   FsGrid<T, stencil> fsgrid_tmp(lhs);
+   targetGrid=fsgrid_tmp*w0; 
+   fsgrid_tmp=rhs;
+   targetGrid += fsgrid_tmp * w1;
 
-
-
-   // return ;
+   return targetGrid;
 }
 
 
