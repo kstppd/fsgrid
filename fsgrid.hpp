@@ -1018,9 +1018,17 @@ template <typename T, int stencil> class FsGrid : public FsGridTools{
       }
 
       template <typename S, typename std::enable_if<std::is_arithmetic<S>::value>::type * = nullptr>
-      FsGrid<T, stencil> &operator*(S mult){
+      FsGrid<T, stencil> &operator*=(S factor){
          for (size_t i=0; i< this->data.size(); i++){
-            this->data[i] = this->data[i]*mult;
+            this->data[i] = this->data[i]*factor;
+         }
+         return *this;
+      }
+
+      template <typename S, typename std::enable_if<std::is_arithmetic<S>::value>::type * = nullptr>
+      FsGrid<T, stencil> &operator/=(S factor){
+         for (size_t i=0; i< this->data.size(); i++){
+            this->data[i] = this->data[i]/factor;
          }
          return *this;
       }
@@ -1091,19 +1099,19 @@ template <typename T, int stencil> class FsGrid : public FsGridTools{
 template <typename T, size_t N>
 static inline std::array<T,N> operator+(const std::array<T, N>& arr1, const std::array<T, N>& arr2){
    std::array<T, N> res;
-    for (size_t i = 0; i < N; ++i){
-        res[i] = arr1[i] + arr2[i];
-      }
-    return res; 
+   for (size_t i = 0; i < N; ++i){
+       res[i] = arr1[i] + arr2[i];
+   }
+   return res; 
 }
 
 template <typename T, size_t N>
 static inline std::array<T,N> operator-(const std::array<T, N>& arr1, const std::array<T, N>& arr2){
    std::array<T, N> res;
-    for (size_t i = 0; i < N; ++i){
-        res[i] = arr1[i] - arr2[i];
-      }
-    return res; 
+   for (size_t i = 0; i < N; ++i){
+       res[i] = arr1[i] - arr2[i];
+   }
+   return res; 
 }
 
 template <typename T, size_t N>
@@ -1118,17 +1126,19 @@ static inline std::array<T, N> operator*(const std::array<T, N> &arr1, const std
 template <typename T, size_t N>
 static inline std::array<T,N> operator/(const std::array<T, N>& arr1, const std::array<T, N>& arr2){
    std::array<T, N> res;
-    for (size_t i = 0; i < N; ++i){
-        res[i] = arr1[i] / arr2[i];
-      }
-    return res; 
+   for (size_t i = 0; i < N; ++i){
+      res[i] = arr1[i] / arr2[i];
+   } 
+   return res; 
 }
 
 template <typename T, size_t N,typename S,typename std::enable_if<std::is_arithmetic<S>::value>::type* = nullptr>
-std::array<T,N> operator*(std::array<T, N>& arr, S mult){
-    for (size_t i = 0; i < N; ++i)
-        arr[i]*=mult;
-    return arr; 
+std::array<T,N> operator*(std::array<T, N>& arr, S factor){
+   std::array<T, N> res;
+   for (size_t i = 0; i < N; ++i){
+       res[i]=arr[i]*factor;
+   } 
+   return res; 
 }
 
 
@@ -1152,47 +1162,33 @@ static inline FsGrid<T, stencil> operator*(const FsGrid<T, stencil> &lhs, const 
    return a *= rhs;
 }
 
+template <class T,int stencil, typename S, typename std::enable_if<std::is_arithmetic<S>::value>::type * = nullptr>
+static inline FsGrid<T, stencil> operator*(const FsGrid<T, stencil>& lhs, S factor){
+   FsGrid<T,stencil> a(lhs);
+   return a*=factor;
+}
+
+template <class T,int stencil, typename S, typename std::enable_if<std::is_arithmetic<S>::value>::type * = nullptr>
+static inline FsGrid<T, stencil> operator/(const FsGrid<T, stencil>& lhs, S factor){
+   FsGrid<T,stencil> a(lhs);
+   return a/=factor;
+}
+
 template <class T, int stencil>
 static inline FsGrid<T, stencil> operator/(const FsGrid<T, stencil> &lhs, const FsGrid<T, stencil> &rhs){
    FsGrid<T, stencil> a(lhs);
    return a /= rhs;
 }
 
+
+/* Here tNorm is the interpolation time but normalized. 
+ * So  t0=0 , t1=1 and then for any t>1 we have  a 
+ * linear extrapolation */
 template <class T, int stencil,typename S,typename std::enable_if<std::is_arithmetic<S>::value>::type* = nullptr>
-static inline FsGrid<T, stencil>  lerp_t(const  FsGrid<T, stencil> &lhs, const FsGrid<T, stencil> &rhs,S t0, S t1,S t){
-   
-   //Sanity check for timestamps. If sizes mismatch then this will make it crash in the '=' operator
-   bool doAble = (t0<=t) && (t<=t1);
-   if (!doAble){
-      #pragma message(": warning<FsGrid lerp_t>: We should probably crash here instead of returning nonesense")
-      //Do we crash here?
-      std::cerr<<"Interpolation not doable in the range of "<<t0<<" "<<t<<" "<<t1<<std::endl; 
-      return lhs;
-   }
-
-   //First let's create the targer grid by copying one of the inputs
-   FsGrid<T, stencil> targetGrid(lhs);
-
-   //Let's now calculate the intepolation weights;
-   S range=t1-t0;
-
-   //in case range is zero return lhs
-   if (range==0.0){
-      return lhs;
-   }
-
-   S d0= abs(t-t0);
-   S d1= abs(t-t1);
-   S w0= 1.- (d0/range);
-   S w1= 1.- (d1/range);
-
-   //Do interpolate-targetGrid=w0*lhs+w1*rhs
-   FsGrid<T, stencil> fsgrid_tmp(lhs);
-   targetGrid=fsgrid_tmp*w0; 
-   fsgrid_tmp=rhs;
-   targetGrid += fsgrid_tmp * w1;
-
-   return targetGrid;
+static inline FsGrid<T, stencil>  lerp_t(const  FsGrid<T, stencil> &lhs, const FsGrid<T, stencil> &rhs,S tNorm){
+   //If sizes mismatch then this will make it crash in the '=' operator later on
+   //Do interpolate-targetGrid=lhs(1-t)+rhs*t1
+   return lhs*(1. - tNorm) + rhs*tNorm;
 }
 
 
