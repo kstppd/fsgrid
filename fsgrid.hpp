@@ -148,8 +148,7 @@ template <typename T, int stencil> class FsGrid : public FsGridTools{
 
       //Copy constructor
       FsGrid(const FsGrid<T, stencil> &other) 
-         : periodic(other.periodic), globalSize(other.globalSize),  coupling(other.coupling){
-         this->parentCom=other.parentCom;
+         : parentCom(other.parentCom),periodic(other.periodic), globalSize(other.globalSize),  coupling(other.coupling){
          init(parentCom,periodic);
          this->data = other.data;
       }
