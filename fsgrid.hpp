@@ -1140,6 +1140,14 @@ std::array<T,N> operator*(std::array<T, N>& arr, S factor){
    return res; 
 }
 
+template <typename T, size_t N,typename S,typename std::enable_if<std::is_arithmetic<S>::value>::type* = nullptr>
+std::array<T,N> operator/(std::array<T, N>& arr, S factor){
+   std::array<T, N> res;
+   for (size_t i = 0; i < N; ++i){
+       res[i]=arr[i]/factor;
+   } 
+   return res; 
+}
 
 
 // FsGrid Operator Overloads
