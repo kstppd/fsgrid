@@ -793,7 +793,7 @@ template <typename T, int stencil> class FsGrid : public FsGridTools{
       }
 
       /*! Finalize async ghost cell communication.*/
-      void finalizeAsyncGhostUpdates()const noexcept {
+      void finalizeAsyncGhostUpdates() noexcept {
          
          if (!commsInProgress){
             std::cerr<<"No async ghost updates in progress. I do not know what to do!"<<std::endl;
