@@ -705,6 +705,12 @@ template <typename T, int stencil> class FsGrid : public FsGridTools{
       /*! Perform ghost cell communication.
        */
       void updateGhostCells() {
+
+         if (commsInProgress){
+            std::cerr<<"Async ghost updates in progress. I cannot initialize another update in parallel. We will now crash!"<<std::endl;
+            abort();
+         }
+
          //TODO, faster with simultaneous isends& ireceives?
          std::array<MPI_Request, 27> receiveRequests;
          std::array<MPI_Request, 27> sendRequests;
@@ -744,6 +750,61 @@ template <typename T, int stencil> class FsGrid : public FsGridTools{
          MPI_Waitall(27, sendRequests.data(), MPI_STATUSES_IGNORE);
       }
    
+
+      /*! Initialize async ghost cell communication.*/
+      void initAsyncGhostUpdate()noexcept {
+
+         if (commsInProgress){
+            std::cerr<<"Async ghost updates in progress. You have a dangling ghost update. We will now crash!"<<std::endl;
+            abort();
+         }
+
+         for(int i = 0; i < 27; i++){
+            asyncReceiveRequests[i] = MPI_REQUEST_NULL;
+            asyncSendRequests[i] = MPI_REQUEST_NULL;
+         }
+         
+         for(int x=-1; x<=1;x++) {
+            for(int y=-1; y<=1;y++) {
+               for(int z=-1; z<=1; z++) {
+                  int shiftId = (x+1) * 9 + (y + 1) * 3 + (z + 1);
+                  int receiveId = (1 - x) * 9 + ( 1 - y) * 3 + ( 1 - z);
+                  if(neighbour[receiveId] != MPI_PROC_NULL &&
+                     neighbourSendType[shiftId] != MPI_DATATYPE_NULL) {
+                     MPI_Irecv(data.data(), 1, neighbourReceiveType[shiftId], neighbour[receiveId], shiftId, comm3d, &(asyncReceiveRequests[shiftId]));
+                  }
+               }
+            }
+         }
+         
+         for(int x=-1; x<=1;x++) {
+            for(int y=-1; y<=1;y++) {
+               for(int z=-1; z<=1; z++) {
+                  int shiftId = (x+1) * 9 + (y + 1) * 3 + (z + 1);
+                  int sendId = shiftId;
+                  if(neighbour[sendId] != MPI_PROC_NULL &&
+                     neighbourSendType[shiftId] != MPI_DATATYPE_NULL) {
+                     MPI_Isend(data.data(), 1, neighbourSendType[shiftId], neighbour[sendId], shiftId, comm3d, &(asyncSendRequests[shiftId]));
+                  }
+               }
+            }
+         }
+         commsInProgress=true;
+      }
+
+      /*! Finalize async ghost cell communication.*/
+      void finalizeAsyncGhostUpdate()const noexcept {
+         
+         if (!commsInProgress){
+            std::cerr<<"No async ghost updates in progress. I do not know what to do!"<<std::endl;
+            abort();
+         }
+
+         MPI_Waitall(27, asyncReceiveRequests.data(), MPI_STATUSES_IGNORE);         
+         MPI_Waitall(27, asyncSendRequests.data(), MPI_STATUSES_IGNORE);
+         commsInProgress=false;
+      }
+
    
    
 
@@ -1003,6 +1064,9 @@ template <typename T, int stencil> class FsGrid : public FsGridTools{
       std::array<MPI_Datatype, 27> neighbourReceiveType; //!< Datatype for receiving data
 
 
+      bool commsInProgress;  // Flag raised when async ghost updates are in progress
+      std::array<MPI_Request, 27> asyncReceiveRequests;  // Buffer to hold async receive requests
+      std::array<MPI_Request, 27> asyncSendRequests;    // Buffer to hold async send requests
 
       //! Actual storage of field data
       std::vector<T> data;
