@@ -752,7 +752,7 @@ template <typename T, int stencil> class FsGrid : public FsGridTools{
    
 
       /*! Initialize async ghost cell communication.*/
-      void initAsyncGhostUpdate()noexcept {
+      void initAsyncGhostUpdates()noexcept {
 
          if (commsInProgress){
             std::cerr<<"Async ghost updates in progress. You have a dangling ghost update. We will now crash!"<<std::endl;
@@ -793,7 +793,7 @@ template <typename T, int stencil> class FsGrid : public FsGridTools{
       }
 
       /*! Finalize async ghost cell communication.*/
-      void finalizeAsyncGhostUpdate()const noexcept {
+      void finalizeAsyncGhostUpdates()const noexcept {
          
          if (!commsInProgress){
             std::cerr<<"No async ghost updates in progress. I do not know what to do!"<<std::endl;
